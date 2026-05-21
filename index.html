@@ -151,7 +151,7 @@
 
     <footer class="fixed bottom-0 left-0 right-0 bg-slate-900 text-slate-400 text-[11px] text-center p-3 border-t border-slate-800 z-50">
         <p class="font-semibold text-slate-300">Hecha por Vibras Positivas HM</p>
-        <p>© 2026 Todos los derechos reservados • Cel: +57 300 6614485</p>
+        <p>© 2026 Todos los derechos reservados • Cel: +57 311 7700431</p>
     </footer>
 
     <script>
@@ -271,7 +271,7 @@
             
             let detalleDb = "";
             let metaDb = "";
-            let numeroDestino = WHATSAPP_ADMIN; // Destinatario por defecto
+            let numeroDestino = WHATSAPP_ADMIN; 
 
             if(rol === 'In-House') {
                 const tipo = document.getElementById('ih-tipo').value;
@@ -283,7 +283,7 @@
                 
                 detalleDb = `${tipo}`;
                 metaDb = tareas.substring(0,60) + "...";
-                numeroDestino = WHATSAPP_ADMIN; // El In-House le reporta directamente a Harold
+                numeroDestino = WHATSAPP_ADMIN; 
             } else if(rol === 'Impulsadora') {
                 const accion = document.getElementById('mer-accion').value;
                 const punto = document.getElementById('mer-punto').value;
@@ -299,10 +299,9 @@
 
                 detalleDb = `${punto} (${ventas} uds)`;
                 metaDb = comentarios.substring(0,60) + "...";
-                numeroDestino = WHATSAPP_INHOUSE; // La impulsadora le reporta a su jefe inmediato (In-House)
+                numeroDestino = WHATSAPP_INHOUSE; 
             }
 
-            // Inyección mandatoria del Link de Geolocalización exacta en el cuerpo del mensaje de WhatsApp
             mensaje += `📍 *Ubicación del Reporte:* https://www.google.com/maps?q=${currentCoords}\n`;
             mensaje += `\n_Hecho con Distrileco Control App_`;
 
