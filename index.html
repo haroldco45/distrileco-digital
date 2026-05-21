@@ -101,7 +101,7 @@
                         📸 <strong>Nota:</strong> Adjunta las fotos directamente en el chat de WhatsApp al enviar este reporte.
                     </div>
                     <button onclick="enviarWhatsApp('Impulsadora')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-2.5 rounded-lg transition-colors shadow">
-                        Enviar Reporte al In-House / Admin
+                        Enviar Reporte al In-House
                     </button>
                 </div>
             </div>
@@ -156,6 +156,11 @@
 
     <script>
         let currentCoords = "No disponible";
+        let isAdminAuthenticated = false;
+
+        // Base de Datos de Números Telefónicos Configurada
+        const WHATSAPP_ADMIN = "573117700431"; // WhatsApp Harold Marín (Admin)
+        const WHATSAPP_INHOUSE = "573233021378"; // WhatsApp del In-House
 
         // Geolocalización Nativa Automática
         if (navigator.geolocation) {
@@ -179,6 +184,17 @@
         }
 
         function switchTab(tabName) {
+            // Protección por Seña Exclusiva para la pestaña de Administrador
+            if (tabName === 'admin' && !isAdminAuthenticated) {
+                const sena = prompt("🔒 Ingrese la seña de seguridad para entrar al módulo de administración:");
+                if (sena === "distrileco2026") {
+                    isAdminAuthenticated = true;
+                } else {
+                    alert("❌ Seña incorrecta. Acceso denegado.");
+                    return;
+                }
+            }
+
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => {
                 el.classList.remove('text-indigo-600', 'border-indigo-600', 'font-semibold');
@@ -203,7 +219,7 @@
                 geo: currentCoords
             };
             logs.unshift(nuevoRegistro);
-            if(logs.length > 15) logs.pop(); // Poda automática de la base de datos corta
+            if(logs.length > 15) logs.pop(); 
             localStorage.setItem('distrileco_short_db', JSON.stringify(logs));
             actualizarVistaAdmin();
         }
@@ -247,7 +263,7 @@
             guardarEnBaseDatosCorta('ADMIN', `Calificación In-House: ${total.toFixed(2)}`, `R:${redes} | I:${impulso} | H:${horario}`);
         }
 
-        // Estructuración de flujos de texto inyectando Geolocalización para WhatsApp
+        // Estructuración de flujos de texto con ruteo inteligente e inyección de Geolocalización
         function enviarWhatsApp(rol) {
             let mensaje = `🚨 *REPORTE OPERATIVO DISTRILECO* 🚨\n`;
             mensaje += `👤 *Rol:* ${rol}\n`;
@@ -255,6 +271,7 @@
             
             let detalleDb = "";
             let metaDb = "";
+            let numeroDestino = WHATSAPP_ADMIN; // Destinatario por defecto
 
             if(rol === 'In-House') {
                 const tipo = document.getElementById('ih-tipo').value;
@@ -266,6 +283,7 @@
                 
                 detalleDb = `${tipo}`;
                 metaDb = tareas.substring(0,60) + "...";
+                numeroDestino = WHATSAPP_ADMIN; // El In-House le reporta directamente a Harold
             } else if(rol === 'Impulsadora') {
                 const accion = document.getElementById('mer-accion').value;
                 const punto = document.getElementById('mer-punto').value;
@@ -281,15 +299,16 @@
 
                 detalleDb = `${punto} (${ventas} uds)`;
                 metaDb = comentarios.substring(0,60) + "...";
+                numeroDestino = WHATSAPP_INHOUSE; // La impulsadora le reporta a su jefe inmediato (In-House)
             }
 
-            // Inyección obligatoria de Link de Geolocalización exacta en el mensaje de WhatsApp
-            mensaje += `📍 *Ubicación del Reporte:* https://maps.google.com/?q=${currentCoords}\n`;
+            // Inyección mandatoria del Link de Geolocalización exacta en el cuerpo del mensaje de WhatsApp
+            mensaje += `📍 *Ubicación del Reporte:* https://www.google.com/maps?q=${currentCoords}\n`;
             mensaje += `\n_Hecho con Distrileco Control App_`;
 
             guardarEnBaseDatosCorta(rol, detalleDb, metaDb);
 
-            const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+            const url = `https://wa.me/${numeroDestino}?text=${encodeURIComponent(mensaje)}`;
             window.open(url, '_blank');
         }
 
@@ -301,7 +320,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             const swCode = `
-                const CACHE_NAME = 'distrileco-v1';
+                const CACHE_NAME = 'distrileco-control-v2';
                 const ASSETS = ['/', '/index.html'];
                 self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS))));
                 self.addEventListener('fetch', (e) => e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request))));
@@ -316,7 +335,7 @@
                 "display": "standalone",
                 "background_color": "#1e293b",
                 "theme_color": "#1e293b",
-                "description": "Control operativo interno para Distrileco",
+                "description": "Control operativo interno seguro para Distrileco",
                 "icons": [
                     {
                         "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%234f46e5'><rect width='100' height='100' rx='20'/><text y='65' x='15' fill='white' font-size='50' font-weight='bold'>D</text></svg>",
