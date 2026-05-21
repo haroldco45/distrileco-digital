@@ -114,8 +114,8 @@
                 <div class="space-y-4">
                     <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
                         <label class="block text-xs font-bold text-indigo-900">📥 Buzón de Entrada (Pegar Mensaje de WhatsApp)</label>
-                        <textarea id="buzon-texto" rows="2" class="w-full text-xs border p-2 rounded-lg bg-white placeholder-slate-400" placeholder="Pega el reporte recibido por WhatsApp completo aquí..."></textarea>
-                        <button onclick="procesarTextoBuzon()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 rounded-lg shadow">
+                        <textarea id="buzon-texto" rows="3" class="w-full text-xs border p-2 rounded-lg bg-white placeholder-slate-400" placeholder="Pega el mensaje completo que te llegó a WhatsApp aquí..."></textarea>
+                        <button onclick="procesarTextoBuzon()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 rounded-lg shadow transition-colors">
                             Procesar e Inyectar a Base de Datos
                         </button>
                     </div>
@@ -169,7 +169,7 @@
         const WHATSAPP_ADMIN = "573117700431"; 
         const WHATSAPP_INHOUSE = "573233021378"; 
 
-        // Geolocalización Nativa Automática
+        // Geolocalización Nativa
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(
                 (position) => {
@@ -215,7 +215,7 @@
             if(tabName === 'admin') actualizarVistaAdmin();
         }
 
-        // Lógica de Base de Datos Corta (Almacena de forma optimizada solo los últimos 15 registros)
+        // Estructura de guardado local optimizada para mantener el orden cronológico
         function guardarEnBaseDatosCorta(rol, detalle, meta, geoText) {
             let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
             const nuevoRegistro = {
@@ -232,43 +232,52 @@
             actualizarVistaAdmin();
         }
 
-        // Motor de Extracción de Texto para decodificar los mensajes del Buzón
+        // MOTOR DE EXTRACCIÓN AUTOMÁTICA DEL BUZÓN (Lee los datos inyectados de WhatsApp)
         function procesarTextoBuzon() {
             const rawText = document.getElementById('buzon-texto').value;
             if(!rawText || !rawText.includes("REPORTE OPERATIVO DISTRILECO")) {
-                alert("❌ El texto pegado no corresponde a un reporte válido de Distrileco.");
+                alert("❌ El texto pegado no es un reporte operativo válido de Distrileco.");
                 return;
             }
 
             try {
-                // Expresiones regulares limpias para segmentar el bloque de texto copiado
-                const rolMatch = rawText.match(/👤 \*Rol:\* (.*)/);
-                const mapaMatch = rawText.match(/📍 \*Ubicación del Reporte:\* (.*)/);
-                
-                let rol = rolMatch ? rolMatch[1].trim() : "DESCONOCIDO";
-                let geo = mapaMatch ? mapaMatch[1].trim().replace("https://www.google.com/maps?q=$", "") : "No disponible";
+                // Extracción de metadatos mediante búsquedas directas por cadenas clave
+                const parteRol = rawText.split("👤 *Rol:* ");
+                if(parteRol.length < 2) throw new Error();
+                const rol = parteRol[1].split("\n")[0].trim();
+
+                const parteGeo = rawText.split("📍 *Ubicación del Reporte:* ");
+                let geo = "No disponible";
+                if(parteGeo.length > 1) {
+                    geo = parteGeo[1].split("\n")[0].trim().replace("https://www.google.com/maps?q=$", "");
+                }
+
                 let detalle = "";
                 let meta = "";
 
                 if(rol === "In-House") {
-                    const bloqueMatch = rawText.match(/⏰ \*Bloque:\* (.*)/);
-                    const tareasMatch = rawText.match(/📝 \*Entregables\/Tareas:\* \n([\s\S]*?)(?=\n📍|\n\n_)/);
-                    detalle = bloqueMatch ? bloqueMatch[1].trim() : "Reporte de Horario";
-                    meta = tareasMatch ? tareasMatch[1].trim().substring(0, 70) + "..." : "";
-                } else if(rol === "Impulsadora") {
-                    const puntoMatch = rawText.match(/🏪 \*Punto de Venta:\* (.*)/);
-                    const ventasMatch = rawText.match(/📈 \*Ventas Directas:\* (.*)/);
-                    const obsMatch = rawText.match(/💬 \*Evidencias\/Observaciones:\* (.*)/);
+                    const parteBloque = rawText.split("⏰ *Bloque:* ");
+                    const parteTareas = rawText.split("📝 *Entregables/Tareas:* \n");
                     
-                    detalle = puntoMatch ? `${puntoMatch[1].trim()} (${ventasMatch ? ventasMatch[1].trim() : 0})` : "Gestión en Punto";
-                    meta = obsMatch ? obsMatch[1].trim() : "";
+                    detalle = parteBloque.length > 1 ? parteBloque[1].split("\n")[0].trim() : "Reporte Horario";
+                    meta = parteTareas.length > 1 ? parteTareas[1].split("\n📍")[0].trim().substring(0, 70) + "..." : "";
+                } else if(rol === "Impulsadora") {
+                    const partePunto = rawText.split("🏪 *Punto de Venta:* ");
+                    const parteVentas = rawText.split("📈 *Ventas Directas:* ");
+                    const parteObs = rawText.split("💬 *Evidencias/Observaciones:* ");
+
+                    const punto = partePunto.length > 1 ? partePunto[1].split("\n")[0].trim() : "Punto Indefinido";
+                    const ventas = parteVentas.length > 1 ? parteVentas[1].split("\n")[0].trim() : "0 uds";
+                    
+                    detalle = `${punto} (${ventas})`;
+                    meta = parteObs.length > 1 ? parteObs[1].split("\n\n📍")[0].trim() : "";
                 }
 
                 guardarEnBaseDatosCorta(rol, detalle, meta, geo);
                 document.getElementById('buzon-texto').value = "";
-                alert("✅ Reporte inyectado con éxito en la Base de Datos Corta Local.");
+                alert("✅ Reporte integrado exitosamente en tu Base de Datos Corta Local.");
             } catch (e) {
-                alert("❌ Error al parsear el texto. Verifica que esté completo.");
+                alert("❌ Error al descomponer los datos del mensaje. Asegúrate de haber copiado el bloque de texto completo.");
             }
         }
 
@@ -281,11 +290,11 @@
             }
             container.innerHTML = logs.map(log => `
                 <div class="p-2 bg-white rounded border border-slate-200 space-y-0.5 text-left shadow-sm">
-                    <div class="flex justify-between font-bold text-slate-700">
-                        <span>[${log.rol}]</span>
-                        <a href="${log.geo.startsWith('http') ? log.geo : 'https://www.google.com/maps?q=$' + log.geo}" target="_blank" class="text-indigo-600 font-mono text-[10px] underline">📍 Ver Mapa</a>
+                    <div class="flex justify-between font-bold text-slate-700 text-xs">
+                        <span>[${log.rol}] ${log.fecha} - ${log.hora}</span>
+                        <a href="${log.geo.startsWith('http') ? log.geo : 'https://www.google.com/maps?q=' + log.geo}" target="_blank" class="text-indigo-600 font-mono text-[10px] underline">📍 Ver Mapa</a>
                     </div>
-                    <p class="text-slate-600 font-medium text-xs">${log.detalle}</p>
+                    <p class="text-slate-600 font-semibold text-xs">${log.detalle}</p>
                     ${log.meta ? `<p class="text-[11px] text-slate-400 italic">${log.meta}</p>` : ''}
                 </div>
             `).join('');
@@ -349,53 +358,12 @@
                 numeroDestino = WHATSAPP_INHOUSE; 
             }
 
-            mensaje += `📍 *Ubicación del Reporte:* https://www.google.com/maps?q=$${currentCoords}\n`;
+            // Inyección nativa del link de mapas legible tanto para ti como para el motor de extracción
+            mensaje += `📍 *Ubicación del Reporte:* ${currentCoords}\n`;
             mensaje += `\n_Hecho con Distrileco Control App_`;
-
-            // En los celulares de los empleados, esto almacena su propia bitácora local antes del envío
-            guardarEnBaseDatosCorta(rol, detalleDb, metaDb, currentCoords);
 
             const url = `https://wa.me/${numeroDestino}?text=${encodeURIComponent(mensaje)}`;
             window.open(url, '_blank');
-        }
-    </script>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            const swCode = `
-                const CACHE_NAME = 'distrileco-control-v4';
-                const ASSETS = ['/', '/index.html'];
-                self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS))));
-                self.addEventListener('fetch', (e) => e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request))));
-            `;
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            
-            const manifest = {
-                "name": "Distrileco Digital Control",
-                "short_name": "Distrileco",
-                "start_url": ".",
-                "display": "standalone",
-                "background_color": "#1e293b",
-                "theme_color": "#1e293b",
-                "description": "Control operativo interno 100% autónomo para Distrileco",
-                "icons": [
-                    {
-                        "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%234f46e5'><rect width='100' height='100' rx='20'/><text y='65' x='15' fill='white' font-size='50' font-weight='bold'>D</text></svg>",
-                        "sizes": "192x192",
-                        "type": "image/svg+xml"
-                    }
-                ]
-            };
-            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-            const manifestUrl = URL.createObjectURL(manifestBlob);
-            
-            const link = document.createElement('link');
-            link.rel = 'manifest';
-            link.href = manifestUrl;
-            document.head.appendChild(link);
-
-            navigator.serviceWorker.register(swUrl).catch(err => console.log("SW error", err));
         }
     </script>
 </body>
