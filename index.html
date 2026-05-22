@@ -381,4 +381,20 @@
             
             const total = (redes * 0.4) + (impulso * 0.4) + (horario * 0.2);
             const resEl = document.getElementById('resultado-nota');
-            resEl.innerText = `Nota Semanal Ponderada: ${total.toFixed(2)} / 5.0
+            resEl.innerText = `Nota Semanal Ponderada: ${total.toFixed(2)} / 5.0`;
+            resEl.classList.remove('hidden');
+
+            guardarEnBaseDatosCorta('ADMIN', `Calificación In-House: ${total.toFixed(2)}`, `R:${redes} | I:${impulso} | H:${horario}`, currentCoords);
+        }
+
+        function enviarWhatsApp(rol) {
+            let mensaje = `🚨 *REPORTE OPERATIVO DISTRILECO* 🚨\n`;
+            mensaje += `👤 *Rol:* ${rol}\n`;
+            mensaje += `📅 *Fecha/Hora:* ${new Date().toLocaleString()}\n`;
+            
+            let detalleDb = "";
+            let metaDb = "";
+            let numeroDestino = WHATSAPP_ADMIN; 
+
+            if(rol === 'In-House') {
+                const tipo
