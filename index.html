@@ -240,4 +240,145 @@
 
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('text
+                el.classList.remove('text-indigo-600', 'border-indigo-600', 'font-semibold');
+                el.classList.add('text-slate-600', 'border-transparent');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            const activeBtn = document.getElementById(`btn-${tabName}`);
+            activeBtn.classList.remove('text-slate-600', 'border-transparent');
+            activeBtn.classList.add('text-indigo-600', 'border-indigo-600', 'font-semibold');
+            
+            if(tabName === 'admin') actualizarVistaAdmin();
+        }
+
+        function guardarEnBaseDatosCorta(rol, detalle, meta, geoText) {
+            let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
+            const nuevoRegistro = {
+                fecha: new Date().toLocaleDateString(),
+                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                rol: rol,
+                detalle: detalle,
+                meta: meta,
+                geo: geoText || currentCoords
+            };
+            logs.unshift(nuevoRegistro);
+            if(logs.length > 15) logs.pop(); 
+            localStorage.setItem('distrileco_short_db', JSON.stringify(logs));
+            actualizarVistaAdmin();
+        }
+
+        function procesarTextoBuzon() {
+            let rawText = document.getElementById('buzon-texto').value.trim();
+            if(!rawText) {
+                alert("❌ El buzón está vacío.");
+                return;
+            }
+
+            let tokenBase64 = "";
+
+            if(rawText.includes("TOKEN-DB:")) {
+                const partes = rawText.split("TOKEN-DB:");
+                tokenBase64 = partes[1].split("\n")[0].trim().replace(/[*🔑]/g, "");
+            } else {
+                tokenBase64 = rawText.replace(/[*🔑\s]/g, "");
+            }
+
+            try {
+                const jsonString = decodeURIComponent(atob(tokenBase64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const data = JSON.parse(jsonString);
+
+                if(!data.rol || !data.detalle) throw new Error();
+
+                guardarEnBaseDatosCorta(data.rol, data.detalle, data.meta, data.geo);
+                document.getElementById('buzon-texto').value = "";
+                alert(`✅ Datos de [${data.rol}] sincronizados de forma exitosa.`);
+            } catch (e) {
+                alert("❌ Error analítico: El código pegado no contiene un formato estructurado legible.");
+            }
+        }
+
+        function actualizarVistaAdmin() {
+            const container = document.getElementById('db-local');
+            let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
+            if(logs.length === 0) {
+                container.innerHTML = '<p class="italic text-center py-2">Ningún reporte guardado en este dispositivo aún.</p>';
+                return;
+            }
+            
+            let htmlContent = "";
+            for(let i = 0; i < logs.length; i++) {
+                let log = logs[i];
+                let mapaUrl = `https://www.google.com/maps?q=${log.geo}`;
+                htmlContent += `
+                    <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1 text-left shadow-sm">
+                        <div class="flex justify-between items-center font-bold text-slate-700 text-xs border-b pb-1">
+                            <span>[${log.rol}] ${log.fecha} - ${log.hora}</span>
+                            <div>
+                                <a href="${mapaUrl}" target="_blank" class="text-indigo-600 font-mono text-[10px] underline">📍 Ver Mapa</a>
+                            </div>
+                        </div>
+                        <p class="text-slate-800 font-semibold text-xs mt-1">${log.detalle}</p>
+                        <p class="text-[11px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100 whitespace-pre-wrap max-h-24 overflow-y-auto">${log.meta || 'Sin comentarios adicionales'}</p>
+                        <div class="text-right mt-1">
+                            <button onclick="abrirModalEditor(${i})" class="text-[11px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-bold px-2 py-0.5 rounded transition-colors">
+                                ✏️ Editar / Ver Detalle Completo
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = htmlContent;
+        }
+
+        function abrirModalEditor(index) {
+            let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
+            let log = logs[index];
+            if(!log) return;
+
+            indiceEdicionActual = index;
+            document.getElementById('modal-rol').innerText = `${log.rol} (${log.fecha} - ${log.hora})`;
+            document.getElementById('modal-input-detalle').value = log.detalle;
+            document.getElementById('modal-input-meta').value = log.meta || '';
+            
+            document.getElementById('modal-editor').classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal-editor').classList.add('hidden');
+            indiceEdicionActual = null;
+        }
+
+        function guardarEdicionModal() {
+            if(indiceEdicionActual === null) return;
+
+            let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
+            if(logs[indiceEdicionActual]) {
+                logs[indiceEdicionActual].detalle = document.getElementById('modal-input-detalle').value;
+                logs[indiceEdicionActual].meta = document.getElementById('modal-input-meta').value;
+                
+                localStorage.setItem('distrileco_short_db', JSON.stringify(logs));
+                actualizarVistaAdmin();
+                cerrarModal();
+                alert("✅ Reporte actualizado localmente con éxito.");
+            }
+        }
+
+        function limpiarDb() {
+            if(confirm("¿Seguro que deseas vaciar el historial corto de este dispositivo?")) {
+                localStorage.removeItem('distrileco_short_db');
+                actualizarVistaAdmin();
+            }
+        }
+
+        function calcularNota() {
+            const redes = parseFloat(document.getElementById('cal-redes').value) || 0;
+            const impulso = parseFloat(document.getElementById('cal-impulso').value) || 0;
+            const horario = parseFloat(document.getElementById('cal-horario').value) || 0;
+            
+            const total = (redes * 0.4) + (impulso * 0.4) + (horario * 0.2);
+            const resEl = document.getElementById('resultado-nota');
+            resEl.innerText = `Nota Semanal Ponderada: ${total.toFixed(2)} / 5.0
