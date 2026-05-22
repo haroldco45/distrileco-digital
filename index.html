@@ -114,9 +114,9 @@
                 <div class="space-y-4">
                     <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
                         <label class="block text-xs font-bold text-indigo-900">📥 Buzón de Entrada (Pegar Mensaje de WhatsApp)</label>
-                        <textarea id="buzon-texto" rows="3" class="w-full text-xs border p-2 rounded-lg bg-white placeholder-slate-400" placeholder="Pega el mensaje completo que te llegó a WhatsApp aquí..."></textarea>
+                        <textarea id="buzon-texto" rows="3" class="w-full text-xs border p-2 rounded-lg bg-white placeholder-slate-400" placeholder="Pega el reporte recibido con TOKEN-DB aquí..."></textarea>
                         <button onclick="procesarTextoBuzon()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 rounded-lg shadow transition-colors">
-                            Procesar e Inyectar a Base de Datos
+                            Procesar e Inyectar Token
                         </button>
                     </div>
 
@@ -169,7 +169,7 @@
         const WHATSAPP_ADMIN = "573117700431"; 
         const WHATSAPP_INHOUSE = "573233021378"; 
 
-        // Geolocalización Nativa
+        // Geolocalización Nativa Activa
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(
                 (position) => {
@@ -215,7 +215,7 @@
             if(tabName === 'admin') actualizarVistaAdmin();
         }
 
-        // Estructura de guardado local optimizada para mantener el orden cronológico
+        // Estructura limpia de almacenamiento local
         function guardarEnBaseDatosCorta(rol, detalle, meta, geoText) {
             let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
             const nuevoRegistro = {
@@ -232,52 +232,31 @@
             actualizarVistaAdmin();
         }
 
-        // MOTOR DE EXTRACCIÓN AUTOMÁTICA DEL BUZÓN (Lee los datos inyectados de WhatsApp)
+        // DECODIFICADOR MAESTRO DE TOKENS (Arquitectura Serverless Local)
         function procesarTextoBuzon() {
             const rawText = document.getElementById('buzon-texto').value;
-            if(!rawText || !rawText.includes("REPORTE OPERATIVO DISTRILECO")) {
-                alert("❌ El texto pegado no es un reporte operativo válido de Distrileco.");
+            if(!rawText || !rawText.includes("🔑 *TOKEN-DB:* ")) {
+                alert("❌ No se encontró ningún Token de datos estructurados válido en el texto pegado.");
                 return;
             }
 
             try {
-                // Extracción de metadatos mediante búsquedas directas por cadenas clave
-                const parteRol = rawText.split("👤 *Rol:* ");
-                if(parteRol.length < 2) throw new Error();
-                const rol = parteRol[1].split("\n")[0].trim();
+                // Aislar y extraer el token cifrado en Base64
+                const partes = rawText.split("🔑 *TOKEN-DB:* ");
+                const tokenBase64 = partes[1].split("\n")[0].trim();
+                
+                // Decodificación UTF-8 nativa segura para conservar acentos y emojis
+                const jsonString = decodeURIComponent(atob(tokenBase64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const data = JSON.parse(jsonString);
 
-                const parteGeo = rawText.split("📍 *Ubicación del Reporte:* ");
-                let geo = "No disponible";
-                if(parteGeo.length > 1) {
-                    geo = parteGeo[1].split("\n")[0].trim().replace("https://www.google.com/maps?q=$", "");
-                }
-
-                let detalle = "";
-                let meta = "";
-
-                if(rol === "In-House") {
-                    const parteBloque = rawText.split("⏰ *Bloque:* ");
-                    const parteTareas = rawText.split("📝 *Entregables/Tareas:* \n");
-                    
-                    detalle = parteBloque.length > 1 ? parteBloque[1].split("\n")[0].trim() : "Reporte Horario";
-                    meta = parteTareas.length > 1 ? parteTareas[1].split("\n📍")[0].trim().substring(0, 70) + "..." : "";
-                } else if(rol === "Impulsadora") {
-                    const partePunto = rawText.split("🏪 *Punto de Venta:* ");
-                    const parteVentas = rawText.split("📈 *Ventas Directas:* ");
-                    const parteObs = rawText.split("💬 *Evidencias/Observaciones:* ");
-
-                    const punto = partePunto.length > 1 ? partePunto[1].split("\n")[0].trim() : "Punto Indefinido";
-                    const ventas = parteVentas.length > 1 ? parteVentas[1].split("\n")[0].trim() : "0 uds";
-                    
-                    detalle = `${punto} (${ventas})`;
-                    meta = parteObs.length > 1 ? parteObs[1].split("\n\n📍")[0].trim() : "";
-                }
-
-                guardarEnBaseDatosCorta(rol, detalle, meta, geo);
+                guardarEnBaseDatosCorta(data.rol, data.detalle, data.meta, data.geo);
                 document.getElementById('buzon-texto').value = "";
-                alert("✅ Reporte integrado exitosamente en tu Base de Datos Corta Local.");
+                alert(`✅ Reporte de [${data.rol}] sincronizado con éxito en tu dispositivo.`);
             } catch (e) {
-                alert("❌ Error al descomponer los datos del mensaje. Asegúrate de haber copiado el bloque de texto completo.");
+                alert("❌ Error crítico de decodificación. Asegúrate de copiar el mensaje completo de WhatsApp sin alterar el token.");
             }
         }
 
@@ -292,7 +271,7 @@
                 <div class="p-2 bg-white rounded border border-slate-200 space-y-0.5 text-left shadow-sm">
                     <div class="flex justify-between font-bold text-slate-700 text-xs">
                         <span>[${log.rol}] ${log.fecha} - ${log.hora}</span>
-                        <a href="${log.geo.startsWith('http') ? log.geo : 'https://www.google.com/maps?q=' + log.geo}" target="_blank" class="text-indigo-600 font-mono text-[10px] underline">📍 Ver Mapa</a>
+                        <a href="https://maps.google.com/?q=${log.geo}" target="_blank" class="text-indigo-600 font-mono text-[10px] underline">📍 Ver Mapa</a>
                     </div>
                     <p class="text-slate-600 font-semibold text-xs">${log.detalle}</p>
                     ${log.meta ? `<p class="text-[11px] text-slate-400 italic">${log.meta}</p>` : ''}
@@ -358,8 +337,13 @@
                 numeroDestino = WHATSAPP_INHOUSE; 
             }
 
-            // Inyección nativa del link de mapas legible tanto para ti como para el motor de extracción
-            mensaje += `📍 *Ubicación del Reporte:* ${currentCoords}\n`;
+            mensaje += `📍 *Ubicación:* https://maps.google.com/?q=${currentCoords}\n`;
+            
+            // 🔑 EMPAQUETAMIENTO DEL TOKEN DATA BINARIO COMPACTO (Nativo UTF-8)
+            const payload = { rol: rol, detalle: detalleDb, meta: metaDb, geo: currentCoords };
+            const base64Token = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+            
+            mensaje += `\n🔑 *TOKEN-DB:* ${base64Token}\n`;
             mensaje += `\n_Hecho con Distrileco Control App_`;
 
             const url = `https://wa.me/${numeroDestino}?text=${encodeURIComponent(mensaje)}`;
