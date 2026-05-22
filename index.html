@@ -36,7 +36,7 @@
         </button>
     </nav>
 
-    <main class="p-4 max-w-md mx-auto mb-20">
+    <main id="main-container" class="p-4 max-w-md mx-auto mb-20 transition-all duration-300">
 
         <section id="tab-inhouse" class="tab-content active space-y-4">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
@@ -144,7 +144,7 @@
 
                     <div class="space-y-2">
                         <h3 class="text-xs font-bold text-slate-700">🗂️ Base de Datos Corta Local (Últimos 15)</h3>
-                        <div id="db-local" class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg max-h-52 overflow-y-auto space-y-2 border">
+                        <div id="db-local" class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg max-h-96 overflow-y-auto space-y-2 border">
                             <p class="italic text-center py-2">Ningún reporte guardado en este dispositivo aún.</p>
                         </div>
                         <button onclick="limpiarDb()" class="w-full text-center text-[10px] text-red-500 hover:underline">
@@ -157,6 +157,33 @@
 
     </main>
 
+    <div id="modal-editor" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="bg-slate-800 text-white p-3 flex justify-between items-center">
+                <h3 class="text-sm font-bold tracking-wide">✏️ DETALLE Y EDICIÓN DEL REPORTE</h3>
+                <button onclick="cerrarModal()" class="text-white hover:text-slate-300 font-bold text-lg px-2">×</button>
+            </div>
+            <div class="p-4 space-y-3 overflow-y-auto flex-1">
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase">Colaborador / Proceso</p>
+                    <p id="modal-rol" class="text-xs font-semibold text-slate-700 bg-slate-100 p-2 rounded-md"></p>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Encabezado / Bloque / Punto</label>
+                    <input type="text" id="modal-input-detalle" class="w-full text-xs border p-2 rounded-lg font-medium text-slate-800 bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1">Descripción de Actividades / Observaciones Completas</label>
+                    <textarea id="modal-input-meta" rows="8" class="w-full text-xs border p-2 rounded-lg font-medium text-slate-800 bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+            </div>
+            <div class="p-3 bg-slate-50 border-t flex justify-end space-x-2">
+                <button onclick="cerrarModal()" class="bg-slate-400 hover:bg-slate-500 text-white text-xs font-bold px-4 py-2 rounded-lg">Cancelar</button>
+                <button onclick="guardarEdicionModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="fixed bottom-0 left-0 right-0 bg-slate-900 text-slate-400 text-[11px] text-center p-3 border-t border-slate-800 z-50">
         <p class="font-semibold text-slate-300">Hecha por Vibras Positivas HM</p>
         <p>© 2026 Todos los derechos reservados • Cel: +57 311 7700431</p>
@@ -165,6 +192,7 @@
     <script>
         let currentCoords = "No disponible";
         let isAdminAuthenticated = false;
+        let indiceEdicionActual = null; 
 
         const WHATSAPP_ADMIN = "573117700431"; 
         const WHATSAPP_INHOUSE = "573233021378"; 
@@ -191,6 +219,7 @@
         }
 
         function switchTab(tabName) {
+            const mainContainer = document.getElementById('main-container');
             if (tabName === 'admin' && !isAdminAuthenticated) {
                 const sena = prompt("🔒 Ingrese la seña de seguridad para entrar al módulo de administración:");
                 if (sena === "distrileco2026") {
@@ -201,162 +230,14 @@
                 }
             }
 
+            if(tabName === 'admin') {
+                mainContainer.classList.remove('max-w-md');
+                mainContainer.classList.add('max-w-xl'); 
+            } else {
+                mainContainer.classList.remove('max-w-xl');
+                mainContainer.classList.add('max-w-md');
+            }
+
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('text-indigo-600', 'border-indigo-600', 'font-semibold');
-                el.classList.add('text-slate-600', 'border-transparent');
-            });
-
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            const activeBtn = document.getElementById(`btn-${tabName}`);
-            activeBtn.classList.remove('text-slate-600', 'border-transparent');
-            activeBtn.classList.add('text-indigo-600', 'border-indigo-600', 'font-semibold');
-            
-            if(tabName === 'admin') actualizarVistaAdmin();
-        }
-
-        function guardarEnBaseDatosCorta(rol, detalle, meta, geoText) {
-            let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
-            const nuevoRegistro = {
-                fecha: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                rol: rol,
-                detalle: detalle,
-                meta: meta,
-                geo: geoText || currentCoords
-            };
-            logs.unshift(nuevoRegistro);
-            if(logs.length > 15) logs.pop(); 
-            localStorage.setItem('distrileco_short_db', JSON.stringify(logs));
-            actualizarVistaAdmin();
-        }
-
-        // MOTOR RECONSTRUCTOR INTELIGENTE Y TOLERANTE DE TOKENS
-        function procesarTextoBuzon() {
-            let rawText = document.getElementById('buzon-texto').value.trim();
-            if(!rawText) {
-                alert("❌ El buzón está vacío.");
-                return;
-            }
-
-            let tokenBase64 = "";
-
-            // Intento 1: Si pegaron el reporte completo, extrae lo que esté después de la etiqueta del token
-            if(rawText.includes("TOKEN-DB:")) {
-                const partes = rawText.split("TOKEN-DB:");
-                tokenBase64 = partes[1].split("\n")[0].trim().replace(/[*🔑]/g, "");
-            } else {
-                // Intento 2: Asumir que pegaron únicamente el chorizo crudo de letras de la cadena Base64
-                tokenBase64 = rawText.replace(/[*🔑\s]/g, "");
-            }
-
-            try {
-                // Decodificación UTF-8 robusta nativa de la arquitectura serverless
-                const jsonString = decodeURIComponent(atob(tokenBase64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                
-                const data = JSON.parse(jsonString);
-
-                // Validar campos críticos mínimos antes de insertar
-                if(!data.rol || !data.detalle) throw new Error();
-
-                guardarEnBaseDatosCorta(data.rol, data.detalle, data.meta, data.geo);
-                document.getElementById('buzon-texto').value = "";
-                alert(`✅ Datos de [${data.rol}] sincronizados de forma exitosa.`);
-            } catch (e) {
-                alert("❌ Error analítico: La cadena pegada no contiene un formato binario estructurado legible. Asegúrate de copiar el código completo sin alteraciones.");
-            }
-        }
-
-        function actualizarVistaAdmin() {
-            const container = document.getElementById('db-local');
-            let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
-            if(logs.length === 0) {
-                container.innerHTML = '<p class="italic text-center py-2">Ningún reporte guardado en este dispositivo aún.</p>';
-                return;
-            }
-            container.innerHTML = logs.map(log => `
-                <div class="p-2 bg-white rounded border border-slate-200 space-y-0.5 text-left shadow-sm">
-                    <div class="flex justify-between font-bold text-slate-700 text-xs">
-                        <span>[${log.rol}] ${log.fecha} - ${log.hora}</span>
-                        <a href="https://maps.google.com/?q=${log.geo}" target="_blank" class="text-indigo-600 font-mono text-[10px] underline">📍 Ver Mapa</a>
-                    </div>
-                    <p class="text-slate-600 font-semibold text-xs">${log.detalle}</p>
-                    ${log.meta ? `<p class="text-[11px] text-slate-400 italic">${log.meta}</p>` : ''}
-                </div>
-            `).join('');
-        }
-
-        function limpiarDb() {
-            if(confirm("¿Seguro que deseas vaciar el historial corto de este dispositivo?")) {
-                localStorage.removeItem('distrileco_short_db');
-                actualizarVistaAdmin();
-            }
-        }
-
-        function calcularNota() {
-            const redes = parseFloat(document.getElementById('cal-redes').value) || 0;
-            const impulso = parseFloat(document.getElementById('cal-impulso').value) || 0;
-            const horario = parseFloat(document.getElementById('cal-horario').value) || 0;
-            
-            const total = (redes * 0.4) + (impulso * 0.4) + (horario * 0.2);
-            const resEl = document.getElementById('resultado-nota');
-            resEl.innerText = `Nota Semanal Ponderada: ${total.toFixed(2)} / 5.0`;
-            resEl.classList.remove('hidden');
-
-            guardarEnBaseDatosCorta('ADMIN', `Calificación In-House: ${total.toFixed(2)}`, `R:${redes} | I:${impulso} | H:${horario}`, currentCoords);
-        }
-
-        function enviarWhatsApp(rol) {
-            let mensaje = `🚨 *REPORTE OPERATIVO DISTRILECO* 🚨\n`;
-            mensaje += `👤 *Rol:* ${rol}\n`;
-            mensaje += `📅 *Fecha/Hora:* ${new Date().toLocaleString()}\n`;
-            
-            let detalleDb = "";
-            let metaDb = "";
-            let numeroDestino = WHATSAPP_ADMIN; 
-
-            if(rol === 'In-House') {
-                const tipo = document.getElementById('ih-tipo').value;
-                const tareas = document.getElementById('ih-tareas').value;
-                if(!tareas) { alert("Por favor describe las tareas realizadas."); return; }
-                
-                mensaje += `⏰ *Bloque:* ${tipo}\n`;
-                mensaje += `📝 *Entregables/Tareas:* \n${tareas}\n`;
-                
-                detalleDb = `${tipo}`;
-                metaDb = tareas.substring(0,60) + "...";
-                numeroDestino = WHATSAPP_ADMIN; 
-            } else if(rol === 'Impulsadora') {
-                const accion = document.getElementById('mer-accion').value;
-                const punto = document.getElementById('mer-punto').value;
-                const ventas = document.getElementById('mer-ventas').value;
-                const comentarios = document.getElementById('mer-comentarios').value;
-
-                if(!punto) { alert("Por favor papaya especifica el Punto de Venta."); return; }
-
-                mensaje += `🏃‍♀️ *Actividad:* ${accion}\n`;
-                mensaje += `🏪 *Punto de Venta:* ${punto}\n`;
-                mensaje += `📈 *Ventas Directas:* ${ventas} uds\n`;
-                mensaje += `💬 *Evidencias/Observaciones:* ${comentarios}\n`;
-
-                detalleDb = `${punto} (${ventas} uds)`;
-                metaDb = comentarios.substring(0,60) + "...";
-                numeroDestino = WHATSAPP_INHOUSE; 
-            }
-
-            mensaje += `📍 *Ubicación:* https://maps.google.com/?q=${currentCoords}\n`;
-            
-            const payload = { rol: rol, detalle: detalleDb, meta: metaDb, geo: currentCoords };
-            const base64Token = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-            
-            mensaje += `\n🔑 *TOKEN-DB:* ${base64Token}\n`;
-            mensaje += `\n_Hecho con Distrileco Control App_`;
-
-            const url = `https://wa.me/${numeroDestino}?text=${encodeURIComponent(mensaje)}`;
-            window.open(url, '_blank');
-        }
-    </script>
-</body>
-</html>
+                el.classList.remove('text
