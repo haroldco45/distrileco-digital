@@ -113,8 +113,8 @@
                 
                 <div class="space-y-4">
                     <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
-                        <label class="block text-xs font-bold text-indigo-900">📥 Buzón de Entrada (Pegar Mensaje de WhatsApp)</label>
-                        <textarea id="buzon-texto" rows="3" class="w-full text-xs border p-2 rounded-lg bg-white placeholder-slate-400" placeholder="Pega el reporte recibido con TOKEN-DB aquí..."></textarea>
+                        <label class="block text-xs font-bold text-indigo-900">📥 Buzón de Entrada (Pegar Mensaje o Token Solo)</label>
+                        <textarea id="buzon-texto" rows="3" class="w-full text-xs border p-2 rounded-lg bg-white placeholder-slate-400" placeholder="Pega el reporte de WhatsApp o el chorizo de letras del token aquí..."></textarea>
                         <button onclick="procesarTextoBuzon()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-1.5 rounded-lg shadow transition-colors">
                             Procesar e Inyectar Token
                         </button>
@@ -215,7 +215,6 @@
             if(tabName === 'admin') actualizarVistaAdmin();
         }
 
-        // Estructura limpia de almacenamiento local
         function guardarEnBaseDatosCorta(rol, detalle, meta, geoText) {
             let logs = JSON.parse(localStorage.getItem('distrileco_short_db')) || [];
             const nuevoRegistro = {
@@ -232,31 +231,41 @@
             actualizarVistaAdmin();
         }
 
-        // DECODIFICADOR MAESTRO DE TOKENS (Arquitectura Serverless Local)
+        // MOTOR RECONSTRUCTOR INTELIGENTE Y TOLERANTE DE TOKENS
         function procesarTextoBuzon() {
-            const rawText = document.getElementById('buzon-texto').value;
-            if(!rawText || !rawText.includes("🔑 *TOKEN-DB:* ")) {
-                alert("❌ No se encontró ningún Token de datos estructurados válido en el texto pegado.");
+            let rawText = document.getElementById('buzon-texto').value.trim();
+            if(!rawText) {
+                alert("❌ El buzón está vacío.");
                 return;
             }
 
+            let tokenBase64 = "";
+
+            // Intento 1: Si pegaron el reporte completo, extrae lo que esté después de la etiqueta del token
+            if(rawText.includes("TOKEN-DB:")) {
+                const partes = rawText.split("TOKEN-DB:");
+                tokenBase64 = partes[1].split("\n")[0].trim().replace(/[*🔑]/g, "");
+            } else {
+                // Intento 2: Asumir que pegaron únicamente el chorizo crudo de letras de la cadena Base64
+                tokenBase64 = rawText.replace(/[*🔑\s]/g, "");
+            }
+
             try {
-                // Aislar y extraer el token cifrado en Base64
-                const partes = rawText.split("🔑 *TOKEN-DB:* ");
-                const tokenBase64 = partes[1].split("\n")[0].trim();
-                
-                // Decodificación UTF-8 nativa segura para conservar acentos y emojis
+                // Decodificación UTF-8 robusta nativa de la arquitectura serverless
                 const jsonString = decodeURIComponent(atob(tokenBase64).split('').map(function(c) {
                     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                 }).join(''));
                 
                 const data = JSON.parse(jsonString);
 
+                // Validar campos críticos mínimos antes de insertar
+                if(!data.rol || !data.detalle) throw new Error();
+
                 guardarEnBaseDatosCorta(data.rol, data.detalle, data.meta, data.geo);
                 document.getElementById('buzon-texto').value = "";
-                alert(`✅ Reporte de [${data.rol}] sincronizado con éxito en tu dispositivo.`);
+                alert(`✅ Datos de [${data.rol}] sincronizados de forma exitosa.`);
             } catch (e) {
-                alert("❌ Error crítico de decodificación. Asegúrate de copiar el mensaje completo de WhatsApp sin alterar el token.");
+                alert("❌ Error analítico: La cadena pegada no contiene un formato binario estructurado legible. Asegúrate de copiar el código completo sin alteraciones.");
             }
         }
 
@@ -325,7 +334,7 @@
                 const ventas = document.getElementById('mer-ventas').value;
                 const comentarios = document.getElementById('mer-comentarios').value;
 
-                if(!punto) { alert("Por favor especifica el Punto de Venta."); return; }
+                if(!punto) { alert("Por favor papaya especifica el Punto de Venta."); return; }
 
                 mensaje += `🏃‍♀️ *Actividad:* ${accion}\n`;
                 mensaje += `🏪 *Punto de Venta:* ${punto}\n`;
@@ -339,7 +348,6 @@
 
             mensaje += `📍 *Ubicación:* https://maps.google.com/?q=${currentCoords}\n`;
             
-            // 🔑 EMPAQUETAMIENTO DEL TOKEN DATA BINARIO COMPACTO (Nativo UTF-8)
             const payload = { rol: rol, detalle: detalleDb, meta: metaDb, geo: currentCoords };
             const base64Token = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
             
